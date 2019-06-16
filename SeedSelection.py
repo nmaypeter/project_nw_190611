@@ -166,8 +166,7 @@ class SeedSelectionPMIS:
         ### bud_index: (list) the using budget index for products
         ### bud_bound_index: (list) the bound budget index for products
         bud_index, bud_bound_index = [len(k) - 1 for k in c_matrix], [0 for _ in range(self.num_product)]
-        ### temp_bound_index: (list) the bound to exclude the impossible budget combination s.t. the k-budget is smaller than the temp bound
-        temp_bound_index = [0 for _ in range(self.num_product)]
+        senpai_list = []
 
         diff = Diffusion(self.graph_dict, self.product_list, self.product_weight_list)
         while bud_index != bud_bound_index:
@@ -175,14 +174,22 @@ class SeedSelectionPMIS:
             bud_pmis = sum(c_matrix[k][bud_index[k]] for k in range(self.num_product))
 
             if bud_pmis <= bud:
-                temp_bound_flag = True
-                for k in range(self.num_product):
-                    if temp_bound_index[k] > bud_index[k]:
-                        temp_bound_flag = False
-                        break
-                if temp_bound_flag:
-                    temp_bound_index = bud_index.copy()
+                seed_set_flag = True
+                if senpai_list:
+                    for senpai_item in senpai_list:
+                        compare_list_flag = True
+                        for b_index in bud_index:
+                            senpai_index = senpai_item[bud_index.index(b_index)]
+                            if b_index > senpai_index:
+                                compare_list_flag = False
+                                break
 
+                        if compare_list_flag:
+                            seed_set_flag = False
+                            break
+
+                if seed_set_flag:
+                    senpai_list.append(bud_index.copy())
                     s_set = [s_matrix[k][bud_index[k]][k].copy() for k in range(self.num_product)]
                     ep = round(sum([diff.getSeedSetProfit(s_set) for _ in range(self.monte)]) / self.monte, 4)
 
@@ -195,4 +202,4 @@ class SeedSelectionPMIS:
                 pointer -= 1
             bud_index[pointer] -= 1
 
-        return mep_result
+        return mep_result[1]

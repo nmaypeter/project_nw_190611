@@ -461,7 +461,7 @@ class Model:
                 seed_set = sspmis_model.solveMultipleChoiceKnapsackProblem(total_budget, s_matrix_bi, c_matrix_bi)
                 ss_time = round(time.time() - ss_start_time, 4)
                 ss_time_sequence[bi_index][sample_count] += ss_time
-                seed_set_sequence[bi_index] = seed_set
+                seed_set_sequence[bi_index][sample_count] = seed_set
 
         eva_model = EvaluationM(self.model_name, self.dataset_name, self.product_name, self.cascade_model)
         for bi in self.budget_iteration:

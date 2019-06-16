@@ -498,11 +498,10 @@ class Model:
                 for k in range(num_product):
                     s_matrix_bi.append(s_matrix_sequence[k][bi_index])
                     c_matrix_bi.append(c_matrix_sequence[k][bi_index])
-                mep_result = sspmis_model.solveMultipleChoiceKnapsackProblem(total_budget, s_matrix_bi, c_matrix_bi)
+                seed_set = sspmis_model.solveMultipleChoiceKnapsackProblem(total_budget, s_matrix_bi, c_matrix_bi)
                 ss_time = round(time.time() - ss_start_time, 4)
                 ss_time_sequence[bi_index][sample_count] += ss_time
-                seed_set = mep_result[1]
-                seed_set_sequence[bi_index].append(seed_set)
+                seed_set_sequence[bi_index] = seed_set
 
         eva_model = EvaluationM(self.model_name, self.dataset_name, self.product_name, self.cascade_model)
         for bi in self.budget_iteration:

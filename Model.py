@@ -511,4 +511,5 @@ class Model:
                 no_data_index = seed_set_sequence[bi_index].index(-1)
                 seed_set_sequence[bi_index][no_data_index] = seed_set_sequence[bi_index - 1][no_data_index]
                 ss_time_sequence[bi_index][no_data_index] = ss_time_sequence[bi_index - 1][no_data_index]
-            eva_model.evaluate(bi, self.wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])
+            for wallet_distribution_type in self.wd_seq:
+                eva_model.evaluate(bi, wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])

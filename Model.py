@@ -55,6 +55,7 @@ class Model:
         seed_set_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
         ss_time_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
         ssnapg_model = SeedSelectionNAPG(graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag=r_flag, epw_flag=epw_flag)
+        diffap_model = DiffusionAccProb(graph_dict, product_list, product_weight_list, epw_flag=epw_flag)
         for sample_count in range(self.sample_number):
             ss_start_time = time.time()
             bud_iter = self.budget_iteration.copy()
@@ -103,28 +104,22 @@ class Model:
                         seed_data.append(str(round(time.time() - ss_start_time + ss_acc_time, 4)) + '\t' + str(mep_k_prod) + '\t' + str(mep_i_node) + '\t' +
                                          str(now_budget) + '\t' + str(now_profit) + '\t' + str([len(seed_set[k]) for k in range(num_product)]) + '\n')
                     else:
-                        mep_item_sequence = [mep_item]
-                        while len(mep_item_sequence) < 20 and celf_heap:
-                            if celf_heap[0][3] != seed_set_length:
-                                mep_item = heap.heappop_max(celf_heap)
-                                mep_ratio, mep_k_prod, mep_i_node, mep_flag = mep_item
-                                if round(now_budget + seed_cost_dict[mep_k_prod][mep_i_node], 4) <= total_cost:
-                                    mep_item_sequence.append(mep_item)
-                        mep_item_sequence_dict = ssnapg_model.updateExpectedInfBatch(seed_set, mep_item_sequence)
-                        for midl in range(len(mep_item_sequence_dict)):
-                            k_prod_t = mep_item_sequence[midl][1]
-                            i_node_t = mep_item_sequence[midl][2]
-                            s_dict = mep_item_sequence_dict[midl]
-                            expected_inf = getExpectedInf(s_dict)
-                            ep_t = round(expected_inf * product_list[mep_k_prod][0] * (1.0 if epw_flag else product_weight_list[mep_k_prod]), 4)
-                            mg_t = round(ep_t - expected_profit_k[k_prod_t], 4)
-                            if r_flag:
-                                mg_t = safe_div(mg_t, now_budget + sc if sr_flag else sc)
-                            flag_t = seed_set_length
+                        seed_set_t = seed_set[mep_k_prod].copy()
+                        seed_set_t.add(mep_i_node)
+                        s_dict = {}
+                        for s_node in seed_set_t:
+                            i_dict = diffap_model.buildNodeExpectedInfDict(seed_set_t, mep_k_prod, s_node, 1)
+                            combineDict(s_dict, i_dict)
+                        expected_inf = getExpectedInf(s_dict)
+                        ep_t = round(expected_inf * product_list[mep_k_prod][0] * (1.0 if epw_flag else product_weight_list[mep_k_prod]), 4)
+                        mg_t = round(ep_t - expected_profit_k[mep_k_prod], 4)
+                        if r_flag:
+                            mg_t = safe_div(mg_t, now_budget + sc if sr_flag else sc)
+                        flag_t = seed_set_length
 
-                            if mg_t > 0:
-                                celf_item_t = (mg_t, k_prod_t, i_node_t, flag_t)
-                                heap.heappush_max(celf_heap, celf_item_t)
+                        if mg_t > 0:
+                            celf_item_t = (mg_t, mep_k_prod, mep_i_node, flag_t)
+                            heap.heappush_max(celf_heap, celf_item_t)
 
                 ss_time = round(time.time() - ss_start_time + ss_acc_time, 4)
                 print('ss_time = ' + str(ss_time) + 'sec, cost = ' + str(now_budget) + ', seed_set_length = ' + str([len(s_set_k) for s_set_k in seed_set]))

@@ -51,6 +51,31 @@ class SeedSelectionNAPG:
 
         return celf_heap
 
+    def updateExpectedInfBatch(self, s_set, mep_item_seq):
+        s_total_set = set(s for k in range(self.num_product) for s in s_set[k])
+        mep_item_seq = [(mep_item_l[1], mep_item_l[2]) for mep_item_l in mep_item_seq]
+        mep_item_dictionary = [{} for _ in range(len(mep_item_seq))]
+        diffap = DiffusionAccProb(self.graph_dict, self.product_list, self.product_weight_list, self.epw_flag)
+
+        for k in range(self.num_product):
+            mep_item_seq_temp = [mep_item_temp for mep_item_temp in mep_item_seq if mep_item_temp[0] == k]
+            if mep_item_seq_temp:
+                for s in s_set[k]:
+                    s_dict_seq = diffap.buildSeedSetExpectedInfDictBatch(s_total_set, k, s, mep_item_seq_temp, [mep_item_id for mep_item_id in range(len(mep_item_seq_temp))], 1)
+                    for mep_item_seq_temp_item in mep_item_seq_temp:
+                        mep_item_id = mep_item_seq.index(mep_item_seq_temp_item)
+                        mep_item_s_dict = s_dict_seq.pop(0)
+                        mep_item_dictionary[mep_item_id] = mep_item_s_dict
+
+        for mep_item_seq_item in mep_item_seq:
+            s_set_t = s_total_set.copy()
+            s_set_t.add(mep_item_seq_item[1])
+            node_anc_dict = diffap.buildNodeExpectedInfDict(s_set_t, mep_item_seq_item[0], mep_item_seq_item[1], 1)
+            mep_item_seq_id = mep_item_seq.index(mep_item_seq_item)
+            combineDict(mep_item_dictionary[mep_item_seq_id], node_anc_dict)
+
+        return mep_item_dictionary
+
 
 class SeedSelectionNG:
     def __init__(self, graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag):

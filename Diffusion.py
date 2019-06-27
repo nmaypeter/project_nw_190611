@@ -115,7 +115,7 @@ def combineDict(o_dict, n_dict):
 
 
 class DiffusionAccProb:
-    def __init__(self, graph_dict, product_list, product_weight_list, epw_flag):
+    def __init__(self, graph_dict, product_list):
         ### graph_dict: (dict) the graph
         ### product_list: (list) the set to record products [kk's profit, kk's cost, kk's price]
         ### num_node: (int) the number of nodes
@@ -124,19 +124,16 @@ class DiffusionAccProb:
         self.graph_dict = graph_dict
         self.product_list = product_list
         self.num_product = len(product_list)
-        self.product_weight_list = product_weight_list if epw_flag else [1.0 for _ in range(self.num_product)]
-        self.epw_flag = epw_flag
         self.prob_threshold = 0.001
 
     def buildNodeExpectedInfDict(self, s_set, k_prod, i_node, i_acc_prob):
-        product_weight = self.product_weight_list[k_prod]
         i_dict = {}
 
         if i_node in self.graph_dict:
             for ii_node in self.graph_dict[i_node]:
                 if ii_node in s_set:
                     continue
-                ii_prob = round(float(self.graph_dict[i_node][ii_node]) * i_acc_prob * product_weight, 4)
+                ii_prob = round(float(self.graph_dict[i_node][ii_node]) * i_acc_prob, 4)
 
                 if ii_prob >= self.prob_threshold:
                     insertProbIntoDict(i_dict, ii_node, ii_prob)
@@ -145,7 +142,7 @@ class DiffusionAccProb:
                         for iii_node in self.graph_dict[ii_node]:
                             if iii_node in s_set:
                                 continue
-                            iii_prob = round(float(self.graph_dict[ii_node][iii_node]) * ii_prob * product_weight, 4)
+                            iii_prob = round(float(self.graph_dict[ii_node][iii_node]) * ii_prob, 4)
 
                             if iii_prob >= self.prob_threshold:
                                 insertProbIntoDict(i_dict, iii_node, iii_prob)
@@ -154,13 +151,13 @@ class DiffusionAccProb:
                                     for iv_node in self.graph_dict[iii_node]:
                                         if iv_node in s_set:
                                             continue
-                                        iv_prob = round(float(self.graph_dict[iii_node][iv_node]) * iii_prob * product_weight, 4)
+                                        iv_prob = round(float(self.graph_dict[iii_node][iv_node]) * iii_prob, 4)
 
                                         if iv_prob >= self.prob_threshold:
                                             insertProbIntoDict(i_dict, iv_node, iv_prob)
 
                                             if iv_node in self.graph_dict and iv_prob > self.prob_threshold:
-                                                diff_d = DiffusionAccProb(self.graph_dict, self.product_list, self.product_weight_list, self.epw_flag)
+                                                diff_d = DiffusionAccProb(self.graph_dict, self.product_list)
                                                 iv_dict = diff_d.buildNodeExpectedInfDict(s_set, k_prod, iv_node, iv_prob)
                                                 combineDict(i_dict, iv_dict)
 

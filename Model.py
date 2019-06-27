@@ -479,3 +479,309 @@ class Model:
                 ss_time_sequence[bi_index][no_data_index] = ss_time_sequence[bi_index - 1][no_data_index]
             for wallet_distribution_type in self.wd_seq:
                 eva_model.evaluate(bi, wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])
+
+    def model_mioa(self):
+        ini = Initialization(self.dataset_name, self.product_name)
+        seed_cost_dict = ini.constructSeedCostDict()
+        graph_dict = ini.constructGraphDict(self.cascade_model)
+        product_list = ini.constructProductList()
+        num_product = len(product_list)
+        product_weight_list = getProductWeight(product_list, self.wallet_distribution_type)
+        total_cost = sum(seed_cost_dict[k][i] for i in seed_cost_dict[0] for k in range(num_product))
+
+        seed_set_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
+        ss_time_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
+        ssmioa_model = SeedSelectionMIOA(graph_dict, seed_cost_dict, product_list)
+        for sample_count in range(self.sample_number):
+            ss_start_time = time.time()
+            bud_iter = self.budget_iteration.copy()
+            b_iter = bud_iter.pop(0)
+            now_budget, now_profit = 0.0, 0.0
+            seed_set = [set() for _ in range(num_product)]
+            seed_inf_dict = [{} for _ in range(num_product)]
+            wd_seq = [self.wallet_distribution_type] if self.wallet_distribution_type else self.wd_seq
+            expected_profit_k = [0.0 for _ in range(num_product)]
+            mioa_dict, miia_dict = ssmioa_model.generateMIA()
+            celf_heap = [(round(sum(mioa_dict[i][j] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k], 4), k, i, 0) for k in range(num_product) for i in mioa_dict]
+            heap.heapify_max(celf_heap)
+            generateHeapOrder(celf_heap, self.model_name, self.dataset_name, self.product_name, self.cascade_model, self.wallet_distribution_type)
+            ss_acc_time = round(time.time() - ss_start_time, 4)
+            temp_sequence = [[ss_acc_time, now_budget, now_profit, seed_set, expected_profit_k, celf_heap]]
+            temp_seed_data = [[]]
+            while temp_sequence:
+                ss_start_time = time.time()
+                bi_index = self.budget_iteration.index(b_iter)
+                total_budget = round(total_cost / (2 ** b_iter), 4)
+                [ss_acc_time, now_budget, now_profit, seed_set, expected_profit_k, celf_heap] = temp_sequence.pop()
+                seed_data = temp_seed_data.pop()
+                print('@ ' + self.model_name + ' seed selection @ dataset_name = ' + self.dataset_name + '_' + self.cascade_model + ', product_name = ' + self.product_name +
+                      ', bud_iter = ' + str(b_iter) + ', budget = ' + str(total_budget) + ', sample_count = ' + str(sample_count))
+
+                celf_heap_c = []
+                while now_budget < total_budget and celf_heap:
+                    if round(now_budget + seed_cost_dict[celf_heap[0][1]][celf_heap[0][2]], 4) >= total_budget and bud_iter and not temp_sequence:
+                        celf_heap_c = copy.deepcopy(celf_heap)
+                    mep_item = heap.heappop_max(celf_heap)
+                    mep_mg, mep_k_prod, mep_i_node, mep_flag = mep_item
+                    sc = seed_cost_dict[mep_k_prod][mep_i_node]
+                    seed_set_length = sum(len(seed_set[k]) for k in range(num_product))
+
+                    if round(now_budget + sc, 4) >= total_budget and bud_iter and not temp_sequence:
+                        ss_time = round(time.time() - ss_start_time + ss_acc_time, 4)
+                        b_iter = bud_iter.pop(0)
+                        temp_sequence.append([ss_time, now_budget, now_profit, copy.deepcopy(seed_set), copy.deepcopy(expected_profit_k), celf_heap_c])
+                        temp_seed_data.append(seed_data)
+
+                    if round(now_budget + sc, 4) > total_budget:
+                        continue
+
+                    if mep_flag == seed_set_length:
+                        seed_set[mep_k_prod].add(mep_i_node)
+                        now_budget = round(now_budget + sc, 4)
+                        now_profit = round(now_profit + mep_mg * sc, 4)
+                        expected_profit_k[mep_k_prod] = round(expected_profit_k[mep_k_prod] + mep_mg * sc, 4)
+
+                        updateSeedInfluence(seed_inf_dict[mep_k_prod], mep_i_node, mioa_dict[mep_i_node])
+                        if mep_i_node in miia_dict:
+                            for i in miia_dict[mep_i_node]:
+                                del mioa_dict[i][mep_i_node]
+                            del miia_dict[mep_i_node]
+                        seed_data.append(str(round(time.time() - ss_start_time + ss_acc_time, 4)) + '\t' + str(mep_k_prod) + '\t' + str(mep_i_node) + '\t' +
+                                         str(now_budget) + '\t' + str(now_profit) + '\t' + str([len(seed_set[k]) for k in range(num_product)]) + '\n')
+                    else:
+                        seed_exp_inf_dict = copy.deepcopy(seed_inf_dict[mep_k_prod])
+                        updateSeedInfluence(seed_exp_inf_dict, mep_i_node, mioa_dict[mep_i_node])
+                        expected_inf = getExpectedInf(seed_exp_inf_dict)
+                        ep_t = round(expected_inf * product_list[mep_k_prod][0] * product_weight_list[mep_k_prod], 4)
+                        mg_t = round(ep_t - expected_profit_k[mep_k_prod], 4)
+                        mg_t = safe_div(mg_t, now_budget)
+                        flag_t = seed_set_length
+
+                        if mg_t > 0:
+                            celf_item_t = (mg_t, mep_k_prod, mep_i_node, flag_t)
+                            heap.heappush_max(celf_heap, celf_item_t)
+
+                ss_time = round(time.time() - ss_start_time + ss_acc_time, 4)
+                print('ss_time = ' + str(ss_time) + 'sec, cost = ' + str(now_budget) + ', seed_set_length = ' + str([len(s_set_k) for s_set_k in seed_set]))
+                seed_set_sequence[bi_index][sample_count] = seed_set
+                ss_time_sequence[bi_index][sample_count] = ss_time
+
+                for wd in wd_seq:
+                    seed_data_path = 'seed_data/' + self.model_name + '_' + wd + '_' + self.dataset_name + '_' + self.cascade_model + '_' + self.product_name + '_bi' + str(b_iter) + '.txt'
+                    seed_data_file = open(seed_data_path, 'w')
+                    for sd in seed_data:
+                        seed_data_file.write(sd)
+                    seed_data_file.close()
+
+        eva_model = EvaluationM(self.model_name, self.dataset_name, self.product_name, self.cascade_model)
+        for bi in self.budget_iteration:
+            bi_index = self.budget_iteration.index(bi)
+            while -1 in seed_set_sequence[bi_index]:
+                no_data_index = seed_set_sequence[bi_index].index(-1)
+                seed_set_sequence[bi_index][no_data_index] = seed_set_sequence[bi_index - 1][no_data_index]
+                ss_time_sequence[bi_index][no_data_index] = ss_time_sequence[bi_index - 1][no_data_index]
+            if self.wallet_distribution_type:
+                eva_model.evaluate(bi, self.wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])
+            else:
+                for wallet_distribution_type in self.wd_seq:
+                    eva_model.evaluate(bi, wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])
+
+    def model_dag1(self):
+        ini = Initialization(self.dataset_name, self.product_name)
+        seed_cost_dict = ini.constructSeedCostDict()
+        graph_dict = ini.constructGraphDict(self.cascade_model)
+        product_list = ini.constructProductList()
+        num_product = len(product_list)
+        product_weight_list = getProductWeight(product_list, self.wallet_distribution_type)
+        total_cost = sum(seed_cost_dict[k][i] for i in seed_cost_dict[0] for k in range(num_product))
+
+        seed_set_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
+        ss_time_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
+        ssdag_model = SeedSelectionDAG(graph_dict, seed_cost_dict, product_list)
+        for sample_count in range(self.sample_number):
+            ss_start_time = time.time()
+            bud_iter = self.budget_iteration.copy()
+            b_iter = bud_iter.pop(0)
+            now_budget, now_profit = 0.0, 0.0
+            seed_set = [set() for _ in range(num_product)]
+            wd_seq = [self.wallet_distribution_type] if self.wallet_distribution_type else self.wd_seq
+            expected_profit_k = [0.0 for _ in range(num_product)]
+            mioa_dict = ssdag_model.generateMIOA()
+            celf_heap = [(round(sum(mioa_dict[i][j] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k], 4), k, i, 0) for k in range(num_product) for i in mioa_dict]
+            heap.heapify_max(celf_heap)
+            generateHeapOrder(celf_heap, self.model_name, self.dataset_name, self.product_name, self.cascade_model, self.wallet_distribution_type)
+            ss_acc_time = round(time.time() - ss_start_time, 4)
+            temp_sequence = [[ss_acc_time, now_budget, now_profit, seed_set, expected_profit_k, celf_heap]]
+            temp_seed_data = [[]]
+            while temp_sequence:
+                ss_start_time = time.time()
+                bi_index = self.budget_iteration.index(b_iter)
+                total_budget = round(total_cost / (2 ** b_iter), 4)
+                [ss_acc_time, now_budget, now_profit, seed_set, expected_profit_k, celf_heap] = temp_sequence.pop()
+                seed_data = temp_seed_data.pop()
+                print('@ ' + self.model_name + ' seed selection @ dataset_name = ' + self.dataset_name + '_' + self.cascade_model + ', product_name = ' + self.product_name +
+                      ', bud_iter = ' + str(b_iter) + ', budget = ' + str(total_budget) + ', sample_count = ' + str(sample_count))
+
+                celf_heap_c = []
+                while now_budget < total_budget and celf_heap:
+                    if round(now_budget + seed_cost_dict[celf_heap[0][1]][celf_heap[0][2]], 4) >= total_budget and bud_iter and not temp_sequence:
+                        celf_heap_c = copy.deepcopy(celf_heap)
+                    mep_item = heap.heappop_max(celf_heap)
+                    mep_mg, mep_k_prod, mep_i_node, mep_flag = mep_item
+                    sc = seed_cost_dict[mep_k_prod][mep_i_node]
+                    seed_set_length = sum(len(seed_set[k]) for k in range(num_product))
+
+                    if round(now_budget + sc, 4) >= total_budget and bud_iter and not temp_sequence:
+                        ss_time = round(time.time() - ss_start_time + ss_acc_time, 4)
+                        b_iter = bud_iter.pop(0)
+                        temp_sequence.append([ss_time, now_budget, now_profit, copy.deepcopy(seed_set), copy.deepcopy(expected_profit_k), celf_heap_c])
+                        temp_seed_data.append(seed_data)
+
+                    if round(now_budget + sc, 4) > total_budget:
+                        continue
+
+                    if mep_flag == seed_set_length:
+                        seed_set[mep_k_prod].add(mep_i_node)
+                        now_budget = round(now_budget + sc, 4)
+                        now_profit = round(now_profit + mep_mg * sc, 4)
+                        expected_profit_k[mep_k_prod] = round(expected_profit_k[mep_k_prod] + mep_mg * sc, 4)
+                        seed_data.append(str(round(time.time() - ss_start_time + ss_acc_time, 4)) + '\t' + str(mep_k_prod) + '\t' + str(mep_i_node) + '\t' +
+                                         str(now_budget) + '\t' + str(now_profit) + '\t' + str([len(seed_set[k]) for k in range(num_product)]) + '\n')
+                    else:
+                        seed_set_t = copy.deepcopy(seed_set)
+                        seed_set_t[mep_k_prod].add(mep_i_node)
+                        seed_exp_inf_dict = ssdag_model.generateSeedExpectedInfDictUsingDAG1(mep_k_prod, seed_set_t)
+                        expected_inf = getExpectedInf(seed_exp_inf_dict)
+                        ep_t = round(expected_inf * product_list[mep_k_prod][0] * product_weight_list[mep_k_prod], 4)
+                        mg_t = round(ep_t - expected_profit_k[mep_k_prod], 4)
+                        mg_t = safe_div(mg_t, now_budget)
+                        flag_t = seed_set_length
+
+                        if mg_t > 0:
+                            celf_item_t = (mg_t, mep_k_prod, mep_i_node, flag_t)
+                            heap.heappush_max(celf_heap, celf_item_t)
+
+                ss_time = round(time.time() - ss_start_time + ss_acc_time, 4)
+                print('ss_time = ' + str(ss_time) + 'sec, cost = ' + str(now_budget) + ', seed_set_length = ' + str([len(s_set_k) for s_set_k in seed_set]))
+                seed_set_sequence[bi_index][sample_count] = seed_set
+                ss_time_sequence[bi_index][sample_count] = ss_time
+
+                for wd in wd_seq:
+                    seed_data_path = 'seed_data/' + self.model_name + '_' + wd + '_' + self.dataset_name + '_' + self.cascade_model + '_' + self.product_name + '_bi' + str(b_iter) + '.txt'
+                    seed_data_file = open(seed_data_path, 'w')
+                    for sd in seed_data:
+                        seed_data_file.write(sd)
+                    seed_data_file.close()
+
+        eva_model = EvaluationM(self.model_name, self.dataset_name, self.product_name, self.cascade_model)
+        for bi in self.budget_iteration:
+            bi_index = self.budget_iteration.index(bi)
+            while -1 in seed_set_sequence[bi_index]:
+                no_data_index = seed_set_sequence[bi_index].index(-1)
+                seed_set_sequence[bi_index][no_data_index] = seed_set_sequence[bi_index - 1][no_data_index]
+                ss_time_sequence[bi_index][no_data_index] = ss_time_sequence[bi_index - 1][no_data_index]
+            if self.wallet_distribution_type:
+                eva_model.evaluate(bi, self.wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])
+            else:
+                for wallet_distribution_type in self.wd_seq:
+                    eva_model.evaluate(bi, wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])
+
+    def model_dag2(self):
+        ini = Initialization(self.dataset_name, self.product_name)
+        seed_cost_dict = ini.constructSeedCostDict()
+        graph_dict = ini.constructGraphDict(self.cascade_model)
+        product_list = ini.constructProductList()
+        num_product = len(product_list)
+        product_weight_list = getProductWeight(product_list, self.wallet_distribution_type)
+        total_cost = sum(seed_cost_dict[k][i] for i in seed_cost_dict[0] for k in range(num_product))
+
+        seed_set_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
+        ss_time_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
+        ssdag_model = SeedSelectionDAG(graph_dict, seed_cost_dict, product_list)
+        for sample_count in range(self.sample_number):
+            ss_start_time = time.time()
+            bud_iter = self.budget_iteration.copy()
+            b_iter = bud_iter.pop(0)
+            now_budget, now_profit = 0.0, 0.0
+            seed_set = [set() for _ in range(num_product)]
+            wd_seq = [self.wallet_distribution_type] if self.wallet_distribution_type else self.wd_seq
+            expected_profit_k = [0.0 for _ in range(num_product)]
+            mioa_dict = ssdag_model.generateMIOA()
+            celf_heap = [(round(sum(mioa_dict[i][j] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k], 4), k, i, 0) for k in range(num_product) for i in mioa_dict]
+            heap.heapify_max(celf_heap)
+            generateHeapOrder(celf_heap, self.model_name, self.dataset_name, self.product_name, self.cascade_model, self.wallet_distribution_type)
+            ss_acc_time = round(time.time() - ss_start_time, 4)
+            temp_sequence = [[ss_acc_time, now_budget, now_profit, seed_set, expected_profit_k, celf_heap]]
+            temp_seed_data = [[]]
+            while temp_sequence:
+                ss_start_time = time.time()
+                bi_index = self.budget_iteration.index(b_iter)
+                total_budget = round(total_cost / (2 ** b_iter), 4)
+                [ss_acc_time, now_budget, now_profit, seed_set, expected_profit_k, celf_heap] = temp_sequence.pop()
+                seed_data = temp_seed_data.pop()
+                print('@ ' + self.model_name + ' seed selection @ dataset_name = ' + self.dataset_name + '_' + self.cascade_model + ', product_name = ' + self.product_name +
+                      ', bud_iter = ' + str(b_iter) + ', budget = ' + str(total_budget) + ', sample_count = ' + str(sample_count))
+
+                celf_heap_c = []
+                while now_budget < total_budget and celf_heap:
+                    if round(now_budget + seed_cost_dict[celf_heap[0][1]][celf_heap[0][2]], 4) >= total_budget and bud_iter and not temp_sequence:
+                        celf_heap_c = copy.deepcopy(celf_heap)
+                    mep_item = heap.heappop_max(celf_heap)
+                    mep_mg, mep_k_prod, mep_i_node, mep_flag = mep_item
+                    sc = seed_cost_dict[mep_k_prod][mep_i_node]
+                    seed_set_length = sum(len(seed_set[k]) for k in range(num_product))
+
+                    if round(now_budget + sc, 4) >= total_budget and bud_iter and not temp_sequence:
+                        ss_time = round(time.time() - ss_start_time + ss_acc_time, 4)
+                        b_iter = bud_iter.pop(0)
+                        temp_sequence.append([ss_time, now_budget, now_profit, copy.deepcopy(seed_set), copy.deepcopy(expected_profit_k), celf_heap_c])
+                        temp_seed_data.append(seed_data)
+
+                    if round(now_budget + sc, 4) > total_budget:
+                        continue
+
+                    if mep_flag == seed_set_length:
+                        seed_set[mep_k_prod].add(mep_i_node)
+                        now_budget = round(now_budget + sc, 4)
+                        now_profit = round(now_profit + mep_mg * sc, 4)
+                        expected_profit_k[mep_k_prod] = round(expected_profit_k[mep_k_prod] + mep_mg * sc, 4)
+                        seed_data.append(str(round(time.time() - ss_start_time + ss_acc_time, 4)) + '\t' + str(mep_k_prod) + '\t' + str(mep_i_node) + '\t' +
+                                         str(now_budget) + '\t' + str(now_profit) + '\t' + str([len(seed_set[k]) for k in range(num_product)]) + '\n')
+                    else:
+                        seed_set_t = copy.deepcopy(seed_set)
+                        seed_set_t[mep_k_prod].add(mep_i_node)
+                        seed_exp_inf_dict = ssdag_model.generateSeedExpectedInfDictUsingDAG2(mep_k_prod, seed_set_t)
+                        expected_inf = getExpectedInf(seed_exp_inf_dict)
+                        ep_t = round(expected_inf * product_list[mep_k_prod][0] * product_weight_list[mep_k_prod], 4)
+                        mg_t = round(ep_t - expected_profit_k[mep_k_prod], 4)
+                        mg_t = safe_div(mg_t, now_budget)
+                        flag_t = seed_set_length
+
+                        if mg_t > 0:
+                            celf_item_t = (mg_t, mep_k_prod, mep_i_node, flag_t)
+                            heap.heappush_max(celf_heap, celf_item_t)
+
+                ss_time = round(time.time() - ss_start_time + ss_acc_time, 4)
+                print('ss_time = ' + str(ss_time) + 'sec, cost = ' + str(now_budget) + ', seed_set_length = ' + str([len(s_set_k) for s_set_k in seed_set]))
+                seed_set_sequence[bi_index][sample_count] = seed_set
+                ss_time_sequence[bi_index][sample_count] = ss_time
+
+                for wd in wd_seq:
+                    seed_data_path = 'seed_data/' + self.model_name + '_' + wd + '_' + self.dataset_name + '_' + self.cascade_model + '_' + self.product_name + '_bi' + str(b_iter) + '.txt'
+                    seed_data_file = open(seed_data_path, 'w')
+                    for sd in seed_data:
+                        seed_data_file.write(sd)
+                    seed_data_file.close()
+
+        eva_model = EvaluationM(self.model_name, self.dataset_name, self.product_name, self.cascade_model)
+        for bi in self.budget_iteration:
+            bi_index = self.budget_iteration.index(bi)
+            while -1 in seed_set_sequence[bi_index]:
+                no_data_index = seed_set_sequence[bi_index].index(-1)
+                seed_set_sequence[bi_index][no_data_index] = seed_set_sequence[bi_index - 1][no_data_index]
+                ss_time_sequence[bi_index][no_data_index] = ss_time_sequence[bi_index - 1][no_data_index]
+            if self.wallet_distribution_type:
+                eva_model.evaluate(bi, self.wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])
+            else:
+                for wallet_distribution_type in self.wd_seq:
+                    eva_model.evaluate(bi, wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])

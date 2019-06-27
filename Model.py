@@ -43,7 +43,7 @@ class Model:
         self.sample_number = 1
         self.monte_carlo = 100
 
-    def model_napg(self, r_flag, sr_flag, epw_flag):
+    def model_napg(self, r_flag):
         ini = Initialization(self.dataset_name, self.product_name)
         seed_cost_dict = ini.constructSeedCostDict()
         graph_dict = ini.constructGraphDict(self.cascade_model)
@@ -54,8 +54,8 @@ class Model:
 
         seed_set_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
         ss_time_sequence = [[-1 for _ in range(self.sample_number)] for _ in range(len(self.budget_iteration))]
-        ssnapg_model = SeedSelectionNAPG(graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag=r_flag, epw_flag=epw_flag)
-        diffap_model = DiffusionAccProb(graph_dict, product_list, product_weight_list, epw_flag=epw_flag)
+        ssnapg_model = SeedSelectionNAPG(graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag=r_flag)
+        diffap_model = DiffusionAccProb(graph_dict, product_list)
         for sample_count in range(self.sample_number):
             ss_start_time = time.time()
             bud_iter = self.budget_iteration.copy()
@@ -99,8 +99,8 @@ class Model:
                     if mep_flag == seed_set_length:
                         seed_set[mep_k_prod].add(mep_i_node)
                         now_budget = round(now_budget + sc, 4)
-                        now_profit = round(now_profit + mep_mg * ((now_budget if sr_flag else sc) if r_flag else 1.0), 4)
-                        expected_profit_k[mep_k_prod] = round(expected_profit_k[mep_k_prod] + mep_mg * ((now_budget if sr_flag else sc) if r_flag else 1.0), 4)
+                        now_profit = round(now_profit + mep_mg * (sc if r_flag else 1.0), 4)
+                        expected_profit_k[mep_k_prod] = round(expected_profit_k[mep_k_prod] + mep_mg * (sc if r_flag else 1.0), 4)
                         seed_data.append(str(round(time.time() - ss_start_time + ss_acc_time, 4)) + '\t' + str(mep_k_prod) + '\t' + str(mep_i_node) + '\t' +
                                          str(now_budget) + '\t' + str(now_profit) + '\t' + str([len(seed_set[k]) for k in range(num_product)]) + '\n')
                     else:
@@ -111,10 +111,10 @@ class Model:
                             i_dict = diffap_model.buildNodeExpectedInfDict(seed_set_t, mep_k_prod, s_node, 1)
                             combineDict(s_dict, i_dict)
                         expected_inf = getExpectedInf(s_dict)
-                        ep_t = round(expected_inf * product_list[mep_k_prod][0] * (1.0 if epw_flag else product_weight_list[mep_k_prod]), 4)
+                        ep_t = round(expected_inf * product_list[mep_k_prod][0] * product_weight_list[mep_k_prod], 4)
                         mg_t = round(ep_t - expected_profit_k[mep_k_prod], 4)
                         if r_flag:
-                            mg_t = safe_div(mg_t, now_budget + sc if sr_flag else sc)
+                            mg_t = safe_div(mg_t, sc)
                         flag_t = seed_set_length
 
                         if mg_t > 0:
@@ -146,7 +146,7 @@ class Model:
                 for wallet_distribution_type in self.wd_seq:
                     eva_model.evaluate(bi, wallet_distribution_type, seed_set_sequence[bi_index], ss_time_sequence[bi_index])
 
-    def model_ng(self, r_flag, sr_flag):
+    def model_ng(self, r_flag):
         ini = Initialization(self.dataset_name, self.product_name)
         seed_cost_dict = ini.constructSeedCostDict()
         graph_dict = ini.constructGraphDict(self.cascade_model)
@@ -210,7 +210,7 @@ class Model:
                         ep_t = round(sum([diff_model.getSeedSetProfit(seed_set_t) for _ in range(self.monte_carlo)]) / self.monte_carlo, 4)
                         mg_t = round(ep_t - now_profit, 4)
                         if r_flag:
-                            mg_t = safe_div(mg_t, now_budget + sc if sr_flag else sc)
+                            mg_t = safe_div(mg_t, sc)
                         flag_t = seed_set_length
 
                         if mg_t > 0:
@@ -750,7 +750,7 @@ class Model:
                     else:
                         seed_set_t = copy.deepcopy(seed_set)
                         seed_set_t[mep_k_prod].add(mep_i_node)
-                        seed_exp_inf_dict = ssdag_model.generateSeedExpectedInfDictUsingDAG2(mep_k_prod, seed_set_t)
+                        seed_exp_inf_dict = ssdag_model.generateSeedExpectedInfDictUsingDAG2(mep_k_prod, seed_set_t, mioa_dict)
                         expected_inf = getExpectedInf(seed_exp_inf_dict)
                         ep_t = round(expected_inf * product_list[mep_k_prod][0] * product_weight_list[mep_k_prod], 4)
                         mg_t = round(ep_t - expected_profit_k[mep_k_prod], 4)

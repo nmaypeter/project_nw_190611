@@ -2,8 +2,9 @@ cm_seq = [1, 2]
 dataset_seq = [1, 2, 3, 4]
 prod_seq = [1, 2]
 wallet_distribution_seq = [1, 2]
-model_seq = ['mnapg', 'mnapgpw', 'mnapgepw', 'mnapgr', 'mnapgrpw', 'mnapgrepw', 'mnapgsr', 'mnapgsrpw', 'mnapgsrepw',
-             'mng', 'mngpw', 'mngr', 'mngrpw', 'mngsr', 'mngsrpw', 'mhd', 'mr', 'mpmis']
+model_seq = ['mnapg', 'mnapgpw', 'mnapgr', 'mnapgrpw',
+             'mng', 'mngpw', 'mngr', 'mngrpw', 'mhd', 'mr', 'mpmis',
+             'mmioa', 'mmioapw', 'mdag1', 'mdag1pw', 'mdag2', 'mdag2pw']
 num_product = 3
 
 for cm in cm_seq:
@@ -48,6 +49,7 @@ for cm in cm_seq:
                                     else:
                                         break
                         except FileNotFoundError:
+                            profit += '\t'
                             cost += '\t'
                             time += '\t'
                             for nl in range(num_product):

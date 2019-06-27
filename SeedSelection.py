@@ -4,7 +4,7 @@ import random
 
 
 class SeedSelectionNAPG:
-    def __init__(self, graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag, epw_flag):
+    def __init__(self, graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag):
         ### graph_dict: (dict) the graph
         ### seed_cost_dict[k][i]: (float4) the seed of i-node and k-item
         ### product_list: (list) the set to record products [k's profit, k's cost, k's price]
@@ -16,38 +16,24 @@ class SeedSelectionNAPG:
         self.num_product = len(product_list)
         self.product_weight_list = product_weight_list
         self.r_flag = r_flag
-        self.epw_flag = epw_flag
 
     def generateCelfHeap(self):
         # -- calculate expected profit for all combinations of nodes and products --
         ### celf_item: (list) (mg, k_prod, i_node, flag)
         celf_heap = []
 
-        diffap = DiffusionAccProb(self.graph_dict, self.product_list, self.product_weight_list, self.epw_flag)
-        if not self.epw_flag:
-            for i in self.graph_dict:
-                i_dict = diffap.buildNodeExpectedInfDict({i}, 0, i, 1)
-                ei = getExpectedInf(i_dict)
+        diffap = DiffusionAccProb(self.graph_dict, self.product_list)
+        for i in self.graph_dict:
+            i_dict = diffap.buildNodeExpectedInfDict({i}, 0, i, 1)
+            ei = getExpectedInf(i_dict)
 
-                if ei > 0:
-                    for k in range(self.num_product):
-                        mg = round(ei * self.product_list[k][0] * self.product_weight_list[k], 4)
-                        if self.r_flag:
-                            mg = safe_div(mg, self.seed_cost_dict[k][i])
-                        celf_item = (mg, k, i, 0)
-                        heap.heappush_max(celf_heap, celf_item)
-        else:
-            for k in range(self.num_product):
-                for i in self.graph_dict:
-                    i_dict = diffap.buildNodeExpectedInfDict({i}, k, i, 1)
-                    ei = getExpectedInf(i_dict)
-
-                    if ei > 0:
-                        mg = round(ei * self.product_list[k][0] * self.product_weight_list[k], 4)
-                        if self.r_flag:
-                            mg = safe_div(mg, self.seed_cost_dict[k][i])
-                        celf_item = (mg, k, i, 0)
-                        heap.heappush_max(celf_heap, celf_item)
+            if ei > 0:
+                for k in range(self.num_product):
+                    mg = round(ei * self.product_list[k][0] * self.product_weight_list[k], 4)
+                    if self.r_flag:
+                        mg = safe_div(mg, self.seed_cost_dict[k][i])
+                    celf_item = (mg, k, i, 0)
+                    heap.heappush_max(celf_heap, celf_item)
 
         return celf_heap
 
@@ -140,7 +126,7 @@ class SeedSelectionPMIS:
         self.product_list = product_list
         self.num_product = len(product_list)
         self.product_weight_list = product_weight_list
-        self.monte = 100
+        self.monte = 10
 
     def generateCelfHeap(self):
         # -- calculate expected profit for all combinations of nodes and products --
@@ -166,7 +152,7 @@ class SeedSelectionPMIS:
         ### bud_index: (list) the using budget index for products
         ### bud_bound_index: (list) the bound budget index for products
         bud_index, bud_bound_index = [len(k) - 1 for k in c_matrix], [0 for _ in range(self.num_product)]
-        senpai_list = []
+        MCKP_list = []
 
         diff = Diffusion(self.graph_dict, self.product_list, self.product_weight_list)
         while bud_index != bud_bound_index:
@@ -175,8 +161,8 @@ class SeedSelectionPMIS:
 
             if bud_pmis <= bud:
                 seed_set_flag = True
-                if senpai_list:
-                    for senpai_item in senpai_list:
+                if MCKP_list:
+                    for senpai_item in MCKP_list:
                         compare_list_flag = True
                         for b_index in bud_index:
                             senpai_index = senpai_item[bud_index.index(b_index)]
@@ -189,18 +175,22 @@ class SeedSelectionPMIS:
                             break
 
                 if seed_set_flag:
-                    senpai_list.append(bud_index.copy())
-                    s_set = [s_matrix[k][bud_index[k]][k].copy() for k in range(self.num_product)]
-                    ep = round(sum([diff.getSeedSetProfit(s_set) for _ in range(self.monte)]) / self.monte, 4)
-
-                    if ep > mep_result[0]:
-                        mep_result = (ep, s_set)
+                    MCKP_list.append(bud_index.copy())
 
             pointer = self.num_product - 1
             while bud_index[pointer] == bud_bound_index[pointer]:
                 bud_index[pointer] = len(c_matrix[pointer]) - 1
                 pointer -= 1
             bud_index[pointer] -= 1
+
+        while MCKP_list:
+            bud_index = MCKP_list.pop(0)
+
+            s_set = [s_matrix[k][bud_index[k]][k].copy() for k in range(self.num_product)]
+            ep = round(sum([diff.getSeedSetProfit(s_set) for _ in range(self.monte)]) / self.monte, 4)
+
+            if ep > mep_result[0]:
+                mep_result = (ep, s_set)
 
         return mep_result[1]
 
@@ -260,7 +250,7 @@ class SeedSelectionMIOA:
                             if ii_prob >= self.prob_threshold:
                                 # -- if ii_node is in heap --
                                 if ii_node in source_dict:
-                                    ii_prob_d = source_dict[ii_node][0]
+                                    ii_prob_d = source_dict[ii_node]
                                     if ii_prob > ii_prob_d:
                                         source_dict[ii_node] = ii_prob
                                         source_heap.remove((ii_prob_d, ii_node))

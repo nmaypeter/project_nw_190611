@@ -3,9 +3,9 @@ from Evaluation import *
 
 
 r_flag, sr_flag, epw_flag = False, False, False
-bi = 0
+bi = 6
 
-dataset_name = 'toy2'
+dataset_name = 'email'
 product_name = 'item_lphc'
 cascade_model = 'ic'
 distribution_type = ''

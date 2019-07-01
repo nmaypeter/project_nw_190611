@@ -501,7 +501,7 @@ class Model:
             seed_mioa_dict = [{} for _ in range(num_product)]
             wd_seq = [self.wallet_distribution_type] if self.wallet_distribution_type else self.wd_seq
             mioa_dict = ssmioa_model.generateMIOA()
-            celf_heap = [(round(sum(mioa_dict[i][j] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k] / (seed_cost_dict[k][i] if r_flag else 1.0), 4), k, i, 0)
+            celf_heap = [(round(sum(mioa_dict[i][j][0] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k] / (seed_cost_dict[k][i] if r_flag else 1.0), 4), k, i, 0)
                          for k in range(num_product) for i in mioa_dict]
             heap.heapify_max(celf_heap)
             generateHeapOrder(celf_heap, self.model_name, self.dataset_name, self.product_name, self.cascade_model, self.wallet_distribution_type)
@@ -602,7 +602,7 @@ class Model:
             wd_seq = [self.wallet_distribution_type] if self.wallet_distribution_type else self.wd_seq
             seed_dag_dict = [{} for _ in range(num_product)]
             mioa_dict = ssmioa_model.generateMIOA()
-            celf_heap = [(round(sum(mioa_dict[i][j] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k] / (seed_cost_dict[k][i] if r_flag else 1.0), 4), k, i, 0)
+            celf_heap = [(round(sum(mioa_dict[i][j][0] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k] / (seed_cost_dict[k][i] if r_flag else 1.0), 4), k, i, 0)
                          for k in range(num_product) for i in mioa_dict]
             heap.heapify_max(celf_heap)
             mep_seed_dag_dict = (celf_heap[0][0], [{} for _ in range(num_product)])
@@ -712,7 +712,7 @@ class Model:
             wd_seq = [self.wallet_distribution_type] if self.wallet_distribution_type else self.wd_seq
             seed_dag_dict = [{} for _ in range(num_product)]
             mioa_dict = ssmioa_model.generateMIOA()
-            celf_heap = [(round(sum(mioa_dict[i][j] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k] / (seed_cost_dict[k][i] if r_flag else 1.0), 4), k, i, 0)
+            celf_heap = [(round(sum(mioa_dict[i][j][0] for j in mioa_dict[i]) * product_list[k][0] * product_weight_list[k] / (seed_cost_dict[k][i] if r_flag else 1.0), 4), k, i, 0)
                          for k in range(num_product) for i in mioa_dict]
             heap.heapify_max(celf_heap)
             mep_seed_dag_dict = (celf_heap[0][0], [{} for _ in range(num_product)])

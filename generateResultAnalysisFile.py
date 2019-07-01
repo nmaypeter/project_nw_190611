@@ -4,7 +4,9 @@ prod_seq = [1, 2]
 wallet_distribution_seq = [1, 2]
 model_seq = ['mnapg', 'mnapgpw', 'mnapgr', 'mnapgrpw',
              'mng', 'mngpw', 'mngr', 'mngrpw', 'mhd', 'mr', 'mpmis',
-             'mmioa', 'mmioapw', 'mdag1', 'mdag1pw', 'mdag2', 'mdag2pw']
+             'mmioa', 'mmioapw', 'mmioar', 'mmioarpw',
+             'mdag1', 'mdag1pw', 'mdag1r', 'mdag1rpw',
+             'mdagw', 'mdag2pw', 'mdag2r', 'mdag2rpw']
 num_product = 3
 
 for cm in cm_seq:

@@ -6,7 +6,7 @@ model_seq = ['mnapg', 'mnapgpw', 'mnapgr', 'mnapgrpw',
              'mng', 'mngpw', 'mngr', 'mngrpw', 'mhd', 'mr', 'mpmis',
              'mmioa', 'mmioapw', 'mmioar', 'mmioarpw',
              'mdag1', 'mdag1pw', 'mdag1r', 'mdag1rpw',
-             'mdagw', 'mdag2pw', 'mdag2r', 'mdag2rpw']
+             'mdag2', 'mdag2pw', 'mdag2r', 'mdag2rpw']
 num_product = 3
 
 for cm in cm_seq:

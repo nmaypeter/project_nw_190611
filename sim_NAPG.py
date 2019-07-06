@@ -2,13 +2,13 @@ from SeedSelection import *
 from Evaluation import *
 
 
-r_flag, sr_flag, epw_flag = False, False, False
+r_flag = False
 bi = 6
 
 dataset_name = 'email'
 product_name = 'item_lphc'
 cascade_model = 'ic'
-distribution_type = ''
+distribution_type = 'm99e96'
 eva_monte_carlo = 100
 
 ini = Initialization(dataset_name, product_name)
@@ -23,8 +23,8 @@ total_budget = round(total_cost / 2**bi, 4)
 
 # -- initialization for each budget --
 start_time = time.time()
-ssngap = SeedSelectionNAPG(graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag=r_flag, epw_flag=epw_flag)
-diffap = DiffusionAccProb(graph_dict, product_list, product_weight_list, epw_flag=epw_flag)
+ssngap = SeedSelectionNAPG(graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag=r_flag)
+diffap = DiffusionAccProb(graph_dict, product_list)
 
 # -- initialization for each sample --
 now_budget, now_profit = 0.0, 0.0
@@ -48,7 +48,7 @@ while now_budget < total_budget and celf_heap:
         lll = 0
         seed_set[mep_k_prod].add(mep_i_node)
         now_budget = round(now_budget + sc, 4)
-        mep_mg *= (now_budget if sr_flag else sc) if r_flag else 1.0
+        mep_mg *= sc if r_flag else 1.0
         now_profit = round(now_profit + mep_mg, 4)
         expected_profit_k[mep_k_prod] = round(expected_profit_k[mep_k_prod] + mep_mg, 4)
         print(round(time.time() - start_time, 4), now_budget, now_profit, [len(seed_set[k]) for k in range(num_product)])
@@ -60,17 +60,17 @@ while now_budget < total_budget and celf_heap:
             i_dict = diffap.buildNodeExpectedInfDict(seed_set_t, mep_k_prod, s_node, 1)
             combineDict(s_dict, i_dict)
         expected_inf = getExpectedInf(s_dict)
-        ep_t = round(expected_inf * product_list[mep_k_prod][0] * (1.0 if epw_flag else product_weight_list[mep_k_prod]), 4)
+        ep_t = round(expected_inf * product_list[mep_k_prod][0] * product_weight_list[mep_k_prod], 4)
         mg_t = round(ep_t - expected_profit_k[mep_k_prod], 4)
         if r_flag:
-            mg_t = safe_div(mg_t, now_budget + sc if sr_flag else sc)
+            mg_t = safe_div(mg_t, sc)
         flag_t = seed_set_length
 
         if mg_t > 0:
             celf_item_t = (mg_t, mep_k_prod, mep_i_node, flag_t)
             heap.heappush_max(celf_heap, celf_item_t)
 
-distribution_type = 'm50e25'
+distribution_type = 'm99e96'
 eva = Evaluation(graph_dict, product_list)
 iniW = IniWallet(dataset_name, product_name, distribution_type)
 wallet_dict = iniW.constructWalletDict()

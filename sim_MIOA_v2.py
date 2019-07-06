@@ -8,9 +8,9 @@ import copy
 r_flag = False
 
 
-bi = 6
+bi = 0
 
-dataset_name = 'email'
+dataset_name = 'toy2'
 product_name = 'item_lphc'
 cascade_model = 'ic'
 distribution_type = ''

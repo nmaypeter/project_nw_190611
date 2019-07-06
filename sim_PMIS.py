@@ -2,9 +2,9 @@ from SeedSelection import *
 from Evaluation import *
 import copy
 
-bi = 0
+bi = 10
 
-dataset_name = 'toy2'
+dataset_name = 'NetHEPT'
 product_name = 'item_lphc'
 cascade_model = 'ic'
 distribution_type = ''

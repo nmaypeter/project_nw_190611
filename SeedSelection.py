@@ -24,8 +24,79 @@ class SeedSelectionNAPG:
 
         diffap = DiffusionAccProb(self.graph_dict, self.product_list)
         for i in self.graph_dict:
+            print(i)
             i_dict = diffap.buildNodeExpectedInfDict({i}, 0, i, 1)
             ei = getExpectedInf(i_dict)
+
+            if ei > 0:
+                for k in range(self.num_product):
+                    mg = round(ei * self.product_list[k][0] * self.product_weight_list[k], 4)
+                    if self.r_flag:
+                        mg = safe_div(mg, self.seed_cost_dict[k][i])
+                    celf_item = (mg, k, i, 0)
+                    heap.heappush_max(celf_heap, celf_item)
+
+        return celf_heap
+
+
+def updateSeedNAPGDict(s_set_napg_dict, s_set_napg_seq, k_prod, i_node, s_set, seed_napg_seq):
+    s_total_set = set(s for k in range(len(s_set)) for s in s_set[k])
+    del_list = [(k, i_item) for k in range(len(s_set_napg_seq)) for i_item in s_set_napg_seq[k] if i_node in i_item[2]]
+
+    while del_list:
+        k, i_item = del_list.pop()
+        i_node, i_prod, i_path = i_item
+        s_set_napg_dict[k][i_node] = safe_div(s_set_napg_dict[k][i_node] - i_prod, 1.0 - i_prod)
+        s_set_napg_seq[k].remove(i_item)
+
+    new_seed_napg_seq = [i for i in seed_napg_seq if not (s_total_set & set(i[2]))]
+    for i_item in new_seed_napg_seq:
+        i_node, i_prod, i_path = i_item
+        s_set_napg_dict[k_prod][i_node] = round(1.0 - (1.0 - s_set_napg_dict[k_prod][i_node]) * (1.0 - i_prod), 4)
+    s_set_napg_seq[k_prod] += new_seed_napg_seq
+
+
+class SeedSelectionNAPG2:
+    def __init__(self, graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag):
+        ### graph_dict: (dict) the graph
+        ### seed_cost_dict[k][i]: (float4) the seed of i-node and k-item
+        ### product_list: (list) the set to record products [k's profit, k's cost, k's price]
+        ### num_product: (int) the kinds of products
+        ### product_weight_list: (list) the product weight list
+        self.graph_dict = graph_dict
+        self.seed_cost_dict = seed_cost_dict
+        self.product_list = product_list
+        self.num_product = len(product_list)
+        self.product_weight_list = product_weight_list
+        self.prob_threshold = 0.001
+        self.r_flag = r_flag
+
+    def generateExpectedInfDict(self):
+        i_dict = {s: {i: 0.0 for i in self.seed_cost_dict[0]} for s in self.graph_dict}
+        i_path_dict = {s: [] for s in self.graph_dict}
+
+        for s in self.graph_dict:
+            print(s)
+            i_seq = [(ii, self.graph_dict[s][ii], [ii]) for ii in self.graph_dict[s] if self.graph_dict[s][ii] >= self.prob_threshold]
+            while i_seq:
+                for i_item in i_seq:
+                    i_node, i_prod, i_path = i_item
+                    i_dict[s][i_node] = round(1.0 - (1.0 - i_dict[s][i_node]) * (1.0 - i_prod), 4)
+                    i_path_dict[s].append(i_item)
+
+                i_seq = [i for i in i_seq if i[0] in self.graph_dict]
+                i_seq = [(ii, round(i[1] * self.graph_dict[i[0]][ii], 4), i[2] + [ii]) for i in i_seq for ii in self.graph_dict[i[0]] if round(i[1] * self.graph_dict[i[0]][ii], 4) >= self.prob_threshold]
+
+        return i_dict, i_path_dict
+
+    def generateCelfHeap(self, i_dict):
+        # -- calculate expected profit for all combinations of nodes and products --
+        ### celf_item: (list) (mg, k_prod, i_node, flag)
+        celf_heap = []
+
+        for i in i_dict:
+            print(i)
+            ei = round(sum(i_dict[i][ii] for ii in i_dict[i]), 4)
 
             if ei > 0:
                 for k in range(self.num_product):
@@ -249,7 +320,7 @@ class SeedSelectionMIOA:
         self.seed_cost_dict = seed_cost_dict
         self.product_list = product_list
         self.num_product = len(product_list)
-        self.prob_threshold = 0.01
+        self.prob_threshold = 0.001
 
     def generateMIOA(self):
         mioa_dict = {}

@@ -28,15 +28,11 @@ start_time = time.time()
 ssngap = SeedSelectionNAPG2(graph_dict, seed_cost_dict, product_list, product_weight_list, r_flag=r_flag)
 diffap = DiffusionAccProb2(graph_dict, seed_cost_dict, product_list)
 
-
 # -- initialization for each sample --
 now_budget, now_profit = 0.0, 0.0
 seed_set = [set() for _ in range(num_product)]
-seed_napg_dict = [{i: 0.0 for i in seed_cost_dict[0]} for _ in range(num_product)]
-seed_napg_seq = [[] for _ in range(num_product)]
 
-i_dict, i_path_dict = ssngap.generateExpectedInfDict()
-celf_heap = ssngap.generateCelfHeap(i_dict)
+celf_heap = ssngap.generateCelfHeap()
 print(round(time.time() - start_time, 4), len(celf_heap))
 lll = 0
 while now_budget < total_budget and celf_heap:
@@ -51,16 +47,12 @@ while now_budget < total_budget and celf_heap:
     if mep_flag == seed_set_length:
         print(len(celf_heap), lll, mep_item)
         lll = 0
-        updateSeedNAPGDict(seed_napg_dict, seed_napg_seq, mep_k_prod, mep_i_node, seed_set, i_path_dict[mep_i_node])
         seed_set[mep_k_prod].add(mep_i_node)
         now_budget = round(now_budget + sc, 4)
         mep_mg *= sc if r_flag else 1.0
         now_profit = round(now_profit + mep_mg, 4)
         print(round(time.time() - start_time, 4), now_budget, now_profit, [len(seed_set[k]) for k in range(num_product)])
     else:
-        seed_exp_napg_dict = copy.deepcopy(seed_napg_dict)
-        seed_exp_napg_seq = copy.deepcopy(seed_napg_seq)
-        updateSeedNAPGDict(seed_exp_napg_dict, seed_exp_napg_seq, mep_k_prod, mep_i_node, seed_set, i_path_dict[mep_i_node])
         seed_set_t = copy.deepcopy(seed_set)
         seed_set_t[mep_k_prod].add(mep_i_node)
         expected_inf = diffap.getExpectedInf(seed_set_t)

@@ -35,7 +35,7 @@ if __name__ == '__main__':
                     Model('mnapgrpw', dataset_name, product_name, cascade_model, wallet_distribution_type).model_napg(r_flag=True)
                     Model('mngpw', dataset_name, product_name, cascade_model, wallet_distribution_type).model_ng(r_flag=False)
                     Model('mngrpw', dataset_name, product_name, cascade_model, wallet_distribution_type).model_ng(r_flag=True)
-                    Model('mmioa', dataset_name, product_name, cascade_model, wallet_distribution_type).model_mioa(r_flag=False)
+                    Model('mmioapw', dataset_name, product_name, cascade_model, wallet_distribution_type).model_mioa(r_flag=False)
                     Model('mmioarpw', dataset_name, product_name, cascade_model, wallet_distribution_type).model_mioa(r_flag=True)
                     Model('mdag1pw', dataset_name, product_name, cascade_model, wallet_distribution_type).model_dag1(r_flag=False)
                     Model('mdag1rpw', dataset_name, product_name, cascade_model, wallet_distribution_type).model_dag1(r_flag=True)

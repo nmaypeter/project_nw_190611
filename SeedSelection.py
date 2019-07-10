@@ -76,7 +76,6 @@ class SeedSelectionNAPG2:
         i_path_dict = {s: [] for s in self.graph_dict}
 
         for s in self.graph_dict:
-            print(s)
             i_seq = [(ii, self.graph_dict[s][ii], [ii]) for ii in self.graph_dict[s] if self.graph_dict[s][ii] >= self.prob_threshold]
             while i_seq:
                 for i_item in i_seq:
@@ -89,14 +88,15 @@ class SeedSelectionNAPG2:
 
         return i_dict, i_path_dict
 
-    def generateCelfHeap(self, i_dict):
+    def generateCelfHeap(self):
         # -- calculate expected profit for all combinations of nodes and products --
         ### celf_item: (list) (mg, k_prod, i_node, flag)
         celf_heap = []
 
-        for i in i_dict:
+        diffap = DiffusionAccProb2(self.graph_dict, self.seed_cost_dict, self.product_list)
+        for i in self.graph_dict:
             print(i)
-            ei = round(sum(i_dict[i][ii] for ii in i_dict[i]), 4)
+            ei = diffap.getExpectedInf([{i}])[0]
 
             if ei > 0:
                 for k in range(self.num_product):

@@ -177,21 +177,67 @@ class DiffusionAccProb2:
         self.num_product = len(product_list)
         self.prob_threshold = 0.001
 
-    def getExpectedInf(self, s_set):
+    def buildNodeExpectedInfDict(self, s_set, i_node, i_acc_prob):
         s_total_set = set(s for k in range(self.num_product) for s in s_set[k])
-        i_dict = [{i: 0.0 for i in self.seed_cost_dict[0]} for _ in range(self.num_product)]
+        i_dict = {i: [] for i in self.seed_cost_dict[0]}
 
-        for k in range(self.num_product):
+        if i_node in self.graph_dict:
+            for ii_node in self.graph_dict[i_node]:
+                if ii_node in s_total_set:
+                    continue
+                ii_prob = round(float(self.graph_dict[i_node][ii_node]) * i_acc_prob, 4)
+
+                if ii_prob >= self.prob_threshold:
+                    i_dict[ii_node].append(ii_prob)
+
+                    if ii_node in self.graph_dict:
+                        for iii_node in self.graph_dict[ii_node]:
+                            if iii_node in s_total_set:
+                                continue
+                            iii_prob = round(float(self.graph_dict[ii_node][iii_node]) * ii_prob, 4)
+
+                            if iii_prob >= self.prob_threshold:
+                                i_dict[iii_node].append(iii_prob)
+
+                                if iii_node in self.graph_dict:
+                                    for iv_node in self.graph_dict[iii_node]:
+                                        if iv_node in s_total_set:
+                                            continue
+                                        iv_prob = round(float(self.graph_dict[iii_node][iv_node]) * iii_prob, 4)
+
+                                        if iv_prob >= self.prob_threshold:
+                                            i_dict[iv_node].append(iv_prob)
+
+                                            if iv_node in self.graph_dict:
+                                                for v_node in self.graph_dict[iv_node]:
+                                                    if v_node in s_total_set:
+                                                        continue
+                                                    v_prob = round(float(self.graph_dict[iv_node][v_node]) * iv_prob, 4)
+
+                                                    if v_node in self.graph_dict and v_prob >= self.prob_threshold:
+                                                        diff_d = DiffusionAccProb2(self.graph_dict, self.seed_cost_dict, self.product_list)
+                                                        v_dict = diff_d.buildNodeExpectedInfDict(s_set, v_node, v_prob)
+                                                        combineDict(i_dict, v_dict)
+
+        return i_dict
+
+    def getExpectedInf(self, s_set):
+        s_total_set = set(s for k in range(len(s_set)) for s in s_set[k])
+        exp_inf = []
+
+        for k in range(len(s_set)):
+            i_dict = {i: 0.0 for i in self.seed_cost_dict[0]}
+
             i_seq = [s for s in s_set[k] if s in self.graph_dict]
             i_seq = [(ii, self.graph_dict[i][ii]) for i in i_seq for ii in self.graph_dict[i] if ii not in s_total_set and self.graph_dict[i][ii] >= self.prob_threshold]
             while i_seq:
                 for i_item in i_seq:
                     i_node, i_prod = i_item
-                    i_dict[k][i_node] = round(1.0 - (1.0 - i_dict[k][i_node]) * (1.0 - i_prod), 4)
+                    i_dict[i_node] = round(1.0 - (1.0 - i_dict[i_node]) * (1.0 - i_prod), 4)
 
                 i_seq = [i for i in i_seq if i[0] in self.graph_dict]
                 i_seq = [(ii, round(i[1] * self.graph_dict[i[0]][ii], 4)) for i in i_seq for ii in self.graph_dict[i[0]] if ii not in s_total_set and round(i[1] * self.graph_dict[i[0]][ii], 4) >= self.prob_threshold]
 
-        exp_inf = [round(sum(i_dict[k][i] for i in i_dict[k]), 4) for k in range(self.num_product)]
+            exp_inf.append(round(sum(i_dict[i] for i in i_dict), 4))
 
         return exp_inf

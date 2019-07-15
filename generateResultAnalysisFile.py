@@ -2,7 +2,8 @@ cm_seq = [1, 2]
 dataset_seq = [1, 2, 3, 4]
 prod_seq = [1, 2]
 wallet_distribution_seq = [1, 2]
-model_seq = ['mmioa', 'mmioapw', 'mmioar', 'mmioarpw',
+model_seq = ['mmioaepw', 'mmioarepw',
+             'mmioa', 'mmioapw', 'mmioar', 'mmioarpw',
              'mdag1', 'mdag1pw', 'mdag1r', 'mdag1rpw',
              'mdag2', 'mdag2pw', 'mdag2r', 'mdag2rpw',
              'mng', 'mngpw', 'mngr', 'mngrpw', 'mhd', 'mr', 'mpmis']
